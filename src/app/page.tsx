@@ -22,8 +22,8 @@ interface TimerStateResponse {
 export default function VortexaTimerPage() {
   // Application State
   const [status, setStatus] = useState<'idle' | 'running' | 'ended'>('idle');
-  const [displaySeconds, setDisplaySeconds] = useState<number>(86400);
-  const [durationSeconds, setDurationSeconds] = useState<number>(86400);
+  const [displaySeconds, setDisplaySeconds] = useState<number>(300);
+  const [durationSeconds, setDurationSeconds] = useState<number>(300);
   
   // Custom Vortex Cursor State
   const [cursorPos, setCursorPos] = useState({ x: -100, y: -100 });
@@ -49,7 +49,7 @@ export default function VortexaTimerPage() {
   const lastCornerClickRef = useRef<number>(0);
 
   // References for monotonic ticking sync
-  const remainingAtSyncRef = useRef<number>(86400);
+  const remainingAtSyncRef = useRef<number>(300);
   const syncedAtPerformanceRef = useRef<number>(0);
   const timerStatusRef = useRef<'idle' | 'running' | 'ended'>('idle');
 
@@ -57,7 +57,7 @@ export default function VortexaTimerPage() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // Sync displaySecondsRef with state
-  const displaySecondsRef = useRef<number>(86400);
+  const displaySecondsRef = useRef<number>(300);
   useEffect(() => {
     displaySecondsRef.current = displaySeconds;
   }, [displaySeconds]);
@@ -106,25 +106,55 @@ export default function VortexaTimerPage() {
     };
   }, []);
 
-  // Sync state from server helper
-  const syncWithServer = async () => {
-    try {
-      const res = await fetch('/api/timer/state');
-      if (!res.ok) throw new Error('Failed to fetch state');
-      const data: TimerStateResponse = await res.json();
-      
-      setStatus(data.status);
-      setDurationSeconds(data.durationSeconds);
-      
-      // Update refs for performance.now ticking
-      timerStatusRef.current = data.status;
-      remainingAtSyncRef.current = data.remainingSeconds;
+  // Sync state helper (client-side only)
+  const syncWithServer = () => {
+    if (typeof window === 'undefined') return;
+    
+    const params = new URLSearchParams(window.location.search);
+    let startVal = params.get('start');
+    
+    // Fallback to localStorage if no URL param is present
+    if (!startVal) {
+      startVal = localStorage.getItem('vortexa_timer_start');
+    }
+    
+    const duration = 300; // 5 minutes
+    setDurationSeconds(duration);
+    
+    if (!startVal) {
+      setStatus('idle');
+      timerStatusRef.current = 'idle';
+      remainingAtSyncRef.current = duration;
       syncedAtPerformanceRef.current = performance.now();
-      
-      // Initial display setup
-      setDisplaySeconds(data.remainingSeconds);
-    } catch (err) {
-      console.error('Failed to sync timer state with server:', err);
+      setDisplaySeconds(duration);
+      return;
+    }
+    
+    const startedAtMs = parseInt(startVal, 10);
+    if (isNaN(startedAtMs)) {
+      setStatus('idle');
+      timerStatusRef.current = 'idle';
+      remainingAtSyncRef.current = duration;
+      syncedAtPerformanceRef.current = performance.now();
+      setDisplaySeconds(duration);
+      return;
+    }
+
+    const nowMs = Date.now();
+    const elapsedSeconds = (nowMs - startedAtMs) / 1000;
+    
+    if (elapsedSeconds >= duration) {
+      setStatus('ended');
+      timerStatusRef.current = 'ended';
+      remainingAtSyncRef.current = 0;
+      syncedAtPerformanceRef.current = performance.now();
+      setDisplaySeconds(0);
+    } else {
+      setStatus('running');
+      timerStatusRef.current = 'running';
+      remainingAtSyncRef.current = Math.max(0, duration - elapsedSeconds);
+      syncedAtPerformanceRef.current = performance.now();
+      setDisplaySeconds(Math.max(0, duration - elapsedSeconds));
     }
   };
 
@@ -230,57 +260,56 @@ export default function VortexaTimerPage() {
   };
 
   // Start the timer
-  const handleStartTimer = async () => {
-    try {
-      const res = await fetch('/api/timer/start', { method: 'POST' });
-      if (res.ok) {
-        const data = await res.json();
-        setStatus(data.status);
-        timerStatusRef.current = data.status;
-        remainingAtSyncRef.current = data.remainingSeconds;
-        syncedAtPerformanceRef.current = performance.now();
-        setDisplaySeconds(data.remainingSeconds);
-        setShowResetModal(false);
-      }
-    } catch (err) {
-      console.error('Error starting timer:', err);
+  const handleStartTimer = () => {
+    const startTimestamp = Date.now();
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('vortexa_timer_start', startTimestamp.toString());
+      
+      // Update URL to include the start time so it's shareable
+      const params = new URLSearchParams(window.location.search);
+      params.set('start', startTimestamp.toString());
+      const newUrl = `${window.location.pathname}?${params.toString()}`;
+      window.history.replaceState({}, '', newUrl);
     }
+    
+    setStatus('running');
+    timerStatusRef.current = 'running';
+    remainingAtSyncRef.current = 300;
+    syncedAtPerformanceRef.current = performance.now();
+    setDisplaySeconds(300);
+    setShowResetModal(false);
   };
 
   // Reset the timer with Pin code authentication
-  const handleResetTimer = async (e: React.FormEvent) => {
+  const handleResetTimer = (e: React.FormEvent) => {
     e.preventDefault();
     setPinError('');
 
-    try {
-      const res = await fetch('/api/timer/reset', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin: pinInput })
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setPinError(data.error || 'Reset failed');
-        return;
-      }
-
-      // Reset successful
-      setStatus(data.status);
-      timerStatusRef.current = data.status;
-      remainingAtSyncRef.current = data.remainingSeconds;
-      syncedAtPerformanceRef.current = performance.now();
-      setDisplaySeconds(data.remainingSeconds);
-      
-      // Clear inputs and close
-      setPinInput('');
-      setShowResetModal(false);
-      playedMilestonesRef.current = {}; // reset milestone tracker
-    } catch (err) {
-      console.error('Error resetting timer:', err);
-      setPinError('Connection error occurred.');
+    if (pinInput !== '2026') {
+      setPinError('Unauthorized: Invalid PIN');
+      return;
     }
+
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('vortexa_timer_start');
+      
+      // Remove start parameter from URL
+      const params = new URLSearchParams(window.location.search);
+      params.delete('start');
+      const newUrl = params.toString() ? `${window.location.pathname}?${params.toString()}` : window.location.pathname;
+      window.history.replaceState({}, '', newUrl);
+    }
+
+    setStatus('idle');
+    timerStatusRef.current = 'idle';
+    remainingAtSyncRef.current = 300;
+    syncedAtPerformanceRef.current = performance.now();
+    setDisplaySeconds(300);
+    
+    // Clear inputs and close
+    setPinInput('');
+    setShowResetModal(false);
+    playedMilestonesRef.current = {}; // reset milestone tracker
   };
 
   // Toggle Mute & Sound Synthesizer Context Initialization
