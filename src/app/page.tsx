@@ -22,8 +22,8 @@ interface TimerStateResponse {
 export default function VortexaTimerPage() {
   // Application State
   const [status, setStatus] = useState<'idle' | 'running' | 'ended'>('idle');
-  const [displaySeconds, setDisplaySeconds] = useState<number>(120);
-  const [durationSeconds, setDurationSeconds] = useState<number>(120);
+  const [displaySeconds, setDisplaySeconds] = useState<number>(86400);
+  const [durationSeconds, setDurationSeconds] = useState<number>(86400);
   
   // Custom Vortex Cursor State
   const [cursorPos, setCursorPos] = useState({ x: -100, y: -100 });
@@ -49,7 +49,7 @@ export default function VortexaTimerPage() {
   const lastCornerClickRef = useRef<number>(0);
 
   // References for monotonic ticking sync
-  const remainingAtSyncRef = useRef<number>(120);
+  const remainingAtSyncRef = useRef<number>(86400);
   const syncedAtPerformanceRef = useRef<number>(0);
   const timerStatusRef = useRef<'idle' | 'running' | 'ended'>('idle');
 
@@ -57,7 +57,7 @@ export default function VortexaTimerPage() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // Sync displaySecondsRef with state
-  const displaySecondsRef = useRef<number>(120);
+  const displaySecondsRef = useRef<number>(86400);
   useEffect(() => {
     displaySecondsRef.current = displaySeconds;
   }, [displaySeconds]);
@@ -120,7 +120,7 @@ export default function VortexaTimerPage() {
       isFromUrl = false;
     }
     
-    const duration = 120; // 2 minutes
+    const duration = 86400; // 24 hours
     setDurationSeconds(duration);
     
     if (!startVal) {
@@ -287,9 +287,9 @@ export default function VortexaTimerPage() {
     
     setStatus('running');
     timerStatusRef.current = 'running';
-    remainingAtSyncRef.current = 120;
+    remainingAtSyncRef.current = 86400;
     syncedAtPerformanceRef.current = performance.now();
-    setDisplaySeconds(120);
+    setDisplaySeconds(86400);
     setShowResetModal(false);
   };
 
