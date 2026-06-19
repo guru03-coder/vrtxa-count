@@ -22,8 +22,8 @@ interface TimerStateResponse {
 export default function VortexaTimerPage() {
   // Application State
   const [status, setStatus] = useState<'idle' | 'running' | 'ended'>('idle');
-  const [displaySeconds, setDisplaySeconds] = useState<number>(300);
-  const [durationSeconds, setDurationSeconds] = useState<number>(300);
+  const [displaySeconds, setDisplaySeconds] = useState<number>(120);
+  const [durationSeconds, setDurationSeconds] = useState<number>(120);
   
   // Custom Vortex Cursor State
   const [cursorPos, setCursorPos] = useState({ x: -100, y: -100 });
@@ -49,7 +49,7 @@ export default function VortexaTimerPage() {
   const lastCornerClickRef = useRef<number>(0);
 
   // References for monotonic ticking sync
-  const remainingAtSyncRef = useRef<number>(300);
+  const remainingAtSyncRef = useRef<number>(120);
   const syncedAtPerformanceRef = useRef<number>(0);
   const timerStatusRef = useRef<'idle' | 'running' | 'ended'>('idle');
 
@@ -57,7 +57,7 @@ export default function VortexaTimerPage() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // Sync displaySecondsRef with state
-  const displaySecondsRef = useRef<number>(300);
+  const displaySecondsRef = useRef<number>(120);
   useEffect(() => {
     displaySecondsRef.current = displaySeconds;
   }, [displaySeconds]);
@@ -118,7 +118,7 @@ export default function VortexaTimerPage() {
       startVal = localStorage.getItem('vortexa_timer_start');
     }
     
-    const duration = 300; // 5 minutes
+    const duration = 120; // 2 minutes
     setDurationSeconds(duration);
     
     if (!startVal) {
@@ -274,9 +274,9 @@ export default function VortexaTimerPage() {
     
     setStatus('running');
     timerStatusRef.current = 'running';
-    remainingAtSyncRef.current = 300;
+    remainingAtSyncRef.current = 120;
     syncedAtPerformanceRef.current = performance.now();
-    setDisplaySeconds(300);
+    setDisplaySeconds(120);
     setShowResetModal(false);
   };
 
@@ -302,9 +302,9 @@ export default function VortexaTimerPage() {
 
     setStatus('idle');
     timerStatusRef.current = 'idle';
-    remainingAtSyncRef.current = 300;
+    remainingAtSyncRef.current = 120;
     syncedAtPerformanceRef.current = performance.now();
-    setDisplaySeconds(300);
+    setDisplaySeconds(120);
     
     // Clear inputs and close
     setPinInput('');
