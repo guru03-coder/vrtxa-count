@@ -112,10 +112,12 @@ export default function VortexaTimerPage() {
     
     const params = new URLSearchParams(window.location.search);
     let startVal = params.get('start');
+    let isFromUrl = true;
     
     // Fallback to localStorage if no URL param is present
     if (!startVal) {
       startVal = localStorage.getItem('vortexa_timer_start');
+      isFromUrl = false;
     }
     
     const duration = 120; // 2 minutes
@@ -144,11 +146,22 @@ export default function VortexaTimerPage() {
     const elapsedSeconds = (nowMs - startedAtMs) / 1000;
     
     if (elapsedSeconds >= duration) {
-      setStatus('ended');
-      timerStatusRef.current = 'ended';
-      remainingAtSyncRef.current = 0;
-      syncedAtPerformanceRef.current = performance.now();
-      setDisplaySeconds(0);
+      if (!isFromUrl) {
+        // Local storage timer has expired, clean up to allow starting a new one
+        localStorage.removeItem('vortexa_timer_start');
+        setStatus('idle');
+        timerStatusRef.current = 'idle';
+        remainingAtSyncRef.current = duration;
+        syncedAtPerformanceRef.current = performance.now();
+        setDisplaySeconds(duration);
+      } else {
+        // URL timer has expired, show ended screen for spectators/shared screens
+        setStatus('ended');
+        timerStatusRef.current = 'ended';
+        remainingAtSyncRef.current = 0;
+        syncedAtPerformanceRef.current = performance.now();
+        setDisplaySeconds(0);
+      }
     } else {
       setStatus('running');
       timerStatusRef.current = 'running';
@@ -293,23 +306,12 @@ export default function VortexaTimerPage() {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('vortexa_timer_start');
       
-      // Remove start parameter from URL
+      // Perform a clean reload without the start query parameter
       const params = new URLSearchParams(window.location.search);
       params.delete('start');
-      const newUrl = params.toString() ? `${window.location.pathname}?${params.toString()}` : window.location.pathname;
-      window.history.replaceState({}, '', newUrl);
+      const searchStr = params.toString();
+      window.location.href = searchStr ? `${window.location.pathname}?${searchStr}` : window.location.pathname;
     }
-
-    setStatus('idle');
-    timerStatusRef.current = 'idle';
-    remainingAtSyncRef.current = 120;
-    syncedAtPerformanceRef.current = performance.now();
-    setDisplaySeconds(120);
-    
-    // Clear inputs and close
-    setPinInput('');
-    setShowResetModal(false);
-    playedMilestonesRef.current = {}; // reset milestone tracker
   };
 
   // Toggle Mute & Sound Synthesizer Context Initialization
