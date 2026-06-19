@@ -3,7 +3,7 @@ import path from 'path';
 
 export interface TimerState {
   startedAt: string | null; // ISO 8601 string or null
-  durationSeconds: number;  // Default: 86400 (24 hours)
+  durationSeconds: number;  // Default: 300 (5 minutes)
 }
 
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -16,7 +16,62 @@ function ensureDataDir() {
   }
 }
 
-export function readState(): TimerState {
+// Check if Vercel KV env variables are available
+function isKvEnabled() {
+  return !!(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
+}
+
+// Helper to make call to Vercel KV REST API via vanilla fetch
+async function kvCommand(command: string[]): Promise<any> {
+  const url = process.env.KV_REST_API_URL!;
+  const token = process.env.KV_REST_API_TOKEN!;
+  
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(command),
+      // Prevent Next.js from caching KV fetches in Route Handlers
+      cache: 'no-store'
+    });
+    
+    if (!res.ok) {
+      console.error(`KV command failed: ${res.statusText}`);
+      return null;
+    }
+    
+    const data = await res.json();
+    return data.result;
+  } catch (err) {
+    console.error('Error executing KV command:', err);
+    return null;
+  }
+}
+
+export async function readState(): Promise<TimerState> {
+  if (isKvEnabled()) {
+    const data = await kvCommand(['GET', 'timer-state']);
+    if (data) {
+      try {
+        return JSON.parse(data);
+      } catch (err) {
+        console.error('Error parsing KV state:', err);
+      }
+    }
+    
+    // Default if not found in KV
+    const defaultState: TimerState = {
+      startedAt: null,
+      durationSeconds: 300 // 5 minutes default
+    };
+    await writeState(defaultState);
+    return defaultState;
+  }
+
+  // Fallback to local files
   ensureDataDir();
   try {
     if (fs.existsSync(STATE_FILE)) {
@@ -29,13 +84,19 @@ export function readState(): TimerState {
   
   const defaultState: TimerState = {
     startedAt: null,
-    durationSeconds: 86400 // 24 hours
+    durationSeconds: 300 // 5 minutes default
   };
-  writeState(defaultState);
+  await writeState(defaultState);
   return defaultState;
 }
 
-export function writeState(state: TimerState): void {
+export async function writeState(state: TimerState): Promise<void> {
+  if (isKvEnabled()) {
+    await kvCommand(['SET', 'timer-state', JSON.stringify(state)]);
+    return;
+  }
+
+  // Fallback to local files
   ensureDataDir();
   try {
     fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2), 'utf8');
@@ -44,8 +105,8 @@ export function writeState(state: TimerState): void {
   }
 }
 
-export function getTimerState() {
-  const state = readState();
+export async function getTimerState() {
+  const state = await readState();
   const serverTime = new Date().toISOString();
   
   if (!state.startedAt) {
@@ -78,18 +139,18 @@ export function getTimerState() {
   };
 }
 
-export function startTimer(): TimerState {
-  const state = readState();
+export async function startTimer(): Promise<TimerState> {
+  const state = await readState();
   if (!state.startedAt) {
     state.startedAt = new Date().toISOString();
-    writeState(state);
+    await writeState(state);
   }
   return state;
 }
 
-export function resetTimer(): TimerState {
-  const state = readState();
+export async function resetTimer(): Promise<TimerState> {
+  const state = await readState();
   state.startedAt = null;
-  writeState(state);
+  await writeState(state);
   return state;
 }

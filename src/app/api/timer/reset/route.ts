@@ -17,8 +17,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Unauthorized: Invalid PIN' }, { status: 401 });
     }
 
-    resetTimer();
-    const currentState = getTimerState();
+    await resetTimer();
+    const currentState = await getTimerState();
     return NextResponse.json(currentState);
   } catch (error) {
     console.error('Error resetting timer:', error);
