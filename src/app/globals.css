@@ -497,16 +497,32 @@ h1, h2, h3, p, span, button {
   margin-bottom: 1rem;
 }
 
-/* Hidden Trigger Corners */
-.hidden-trigger-corner {
+/* Organizer Control Button Styling */
+.admin-control-btn {
   position: absolute;
-  bottom: 0;
-  right: 0;
-  width: 32px;
-  height: 32px;
-  background: transparent;
-  cursor: default;
+  bottom: 20px;
+  right: 20px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
   z-index: 999;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.admin-control-btn:hover {
+  color: var(--primary-accent);
+  border-color: var(--primary-accent);
+  background: rgba(0, 242, 254, 0.1);
+  box-shadow: 0 0 15px rgba(0, 242, 254, 0.4);
+  transform: rotate(45deg);
 }
 
 /* Milestone Pulse Overlay */
